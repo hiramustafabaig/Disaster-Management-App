@@ -5,7 +5,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/OmerBinDawood/Disaster-Management-App'
+                git branch: 'main', url: 'https://github.com/hiramustafabaig/Disaster-Management-App'
             }
         }
 
