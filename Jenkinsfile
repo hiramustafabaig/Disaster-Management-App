@@ -5,6 +5,7 @@ pipeline {
         APP_IMAGE = "disaster-app"
         TEST_IMAGE = "disaster-tests"
         DEFAULT_EMAIL = "recipient@domain.com"
+        APP_URL = "http://13.62.250.232:3000"
     }
 
     stages {
@@ -37,7 +38,7 @@ pipeline {
         stage('Clone Test Repo') {
             steps {
                 sh 'rm -rf tests || true'
-                sh 'git clone https://github.com/hiramustafabaig/disaster-management-tests'
+                sh 'git clone https://github.com/hiramustafabaig/disaster-management-tests tests'
             }
         }
 
@@ -58,20 +59,34 @@ pipeline {
         always {
             script {
 
-                // cleanup container
+                // cleanup containers safely
                 sh 'docker stop app_container || true'
                 sh 'docker rm app_container || true'
 
                 // ----------------------------
-                // FIX: dynamic email handling
+                // FIXED EMAIL LOGIC (ROBUST)
                 // ----------------------------
 
-                def commitEmail = sh(
-                    script: "git log -1 --pretty=format:%ae || echo ''",
-                    returnStdout: true
-                ).trim()
+                def commitEmail = ""
+                def authorEmail = env.DEFAULT_EMAIL
 
-                def authorEmail = commitEmail ? commitEmail : env.DEFAULT_EMAIL
+                try {
+                    commitEmail = sh(
+                        script: "git log -1 --pretty=format:%ae",
+                        returnStdout: true
+                    ).trim()
+                } catch (Exception e) {
+                    echo "Could not fetch git author email"
+                }
+
+                if (commitEmail != null && commitEmail != "") {
+                    authorEmail = commitEmail
+                }
+
+                // fallback safety for Jenkins environments
+                if (authorEmail == null || authorEmail == "") {
+                    authorEmail = env.DEFAULT_EMAIL
+                }
 
                 emailext(
                     to: authorEmail,
@@ -85,12 +100,15 @@ Build Number : ${env.BUILD_NUMBER}
 Status       : ${currentBuild.currentResult}
 Job URL      : ${env.BUILD_URL}
 
+Deployment URL: ${env.APP_URL}
+
 Repo         : Disaster Management App
 Branch       : main
 
 ========================================
 """,
-                    attachLog: true
+                    attachLog: true,
+                    mimeType: 'text/plain'
                 )
             }
         }
